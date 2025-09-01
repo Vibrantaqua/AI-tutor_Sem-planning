@@ -32,7 +32,8 @@ A simple React + TypeScript chat interface where:
 1. **Clone the repository**
 
 https://github.com/Vibrantaqua/AI-tutor_Sem-planning.git
-cd <your-repo>
+
+cd ai-sem-planner
 
 2.Install dependencies
 
