@@ -31,6 +31,17 @@ A simple React + TypeScript chat interface where:
 
 1. **Clone the repository**
 
-```bash
 git clone https://github.com/<your-username>/<your-repo>.git
 cd <your-repo>
+
+2.Install dependencies
+
+npm install
+
+
+3.Start the development server
+
+npm run dev
+
+
+Open your browser at http://localhost:3000
