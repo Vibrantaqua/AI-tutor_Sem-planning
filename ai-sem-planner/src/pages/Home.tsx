@@ -27,10 +27,10 @@ export default function Home() {
           Register
         </Link>
         <Link
-          to="/dashboard"
+          to="/chat"
           className="px-6 py-3 border-2 border-white rounded-lg hover:bg-white hover:text-darkGreen transition"
         >
-          Explore Dashboard
+          Start AI Chat
         </Link>
       </div>
     </div>

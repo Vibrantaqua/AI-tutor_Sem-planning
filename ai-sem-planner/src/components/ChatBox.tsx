@@ -1,74 +1,77 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect} from "react";
+import type { ChangeEvent } from"react";
+interface Message {
+  sender: "User" | "AI";
+  text: string;
+}
 
 interface ChatBoxProps {
   selectedChat: string | null;
+  setSelectedChat: (chat: string | null) => void;
 }
 
-interface Message {
-  role: "user" | "ai";
-  content: string;
-}
-
-export default function ChatBox({ selectedChat }: ChatBoxProps) {
-  const [messages, setMessages] = useState<Message[]>([
-    { role: "ai", content: "Hello! How can I assist with your semester plan?" },
-  ]);
+export default function ChatBox({ selectedChat, setSelectedChat }: ChatBoxProps) {
+  const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
-  const messagesEndRef = useRef<HTMLDivElement | null>(null);
-
-  const sendMessage = () => {
-    if (!input.trim()) return;
-    setMessages([...messages, { role: "user", content: input }]);
-    setInput("");
-    // TODO: Call AI API and append response
-  };
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  return (
-    <div className="flex-1 flex flex-col bg-gray-100">
-      {!selectedChat ? (
-        <div className="flex-1 flex items-center justify-center text-gray-500 text-lg">
-          Start a new conversation or select a chat from the sidebar.
-        </div>
-      ) : (
-        <div className="flex-1 flex flex-col p-4">
-          <div className="flex-1 overflow-y-auto mb-2 space-y-2 scrollbar-thin scrollbar-thumb-darkGreen scrollbar-track-gray-300">
-            {messages.map((msg, idx) => (
-              <div
-                key={idx}
-                className={`max-w-xs p-3 rounded-lg break-words shadow ${
-                  msg.role === "user"
-                    ? "bg-gradient-to-r from-lightGreen to-knowledgeGreen self-end text-gray-900 animate-fade-in"
-                    : "bg-gradient-to-r from-knowledgeGreen to-darkGreen self-start text-white animate-fade-in"
-                }`}
-              >
-                {msg.content}
-              </div>
-            ))}
-            <div ref={messagesEndRef} />
-          </div>
+  const handleSend = () => {
+    if (!input.trim()) return;
 
-          <div className="flex gap-2 mt-2">
-            <input
-              type="text"
-              placeholder="Type your message..."
-              className="flex-1 p-2 border rounded focus:ring-2 focus:ring-knowledgeGreen focus:outline-none transition"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && sendMessage()}
-            />
-            <button
-              onClick={sendMessage}
-              className="px-4 bg-knowledgeGreen text-white rounded hover:bg-darkGreen transition"
+    const userMessage: Message = { sender: "User", text: input };
+    setMessages(prev => [...prev, userMessage]);
+    setInput("");
+
+    setTimeout(() => {
+      const aiMessage: Message = { sender: "AI", text: "This is an AI response." };
+      setMessages(prev => [...prev, aiMessage]);
+    }, 500);
+  };
+
+  return (
+    <div className="flex flex-col h-full bg-gray-50 rounded-xl shadow p-3">
+      <h3 className="text-xl font-bold text-darkGreen mb-2">{selectedChat || "New Chat"}</h3>
+      
+      <div className="flex-1 overflow-y-auto mb-2 flex flex-col space-y-2">
+        {messages.map((msg, idx) => (
+          <div
+            key={idx}
+            className={`flex ${msg.sender === "User" ? "justify-end" : "justify-start"}`}
+          >
+            <div
+              className={`p-2 rounded max-w-xs break-words ${
+                msg.sender === "User"
+                  ? "bg-green-500 text-white rounded-l-lg rounded-tr-lg"
+                  : "bg-gray-300 text-black rounded-r-lg rounded-tl-lg"
+              }`}
             >
-              Send
-            </button>
+              {msg.text}
+            </div>
           </div>
-        </div>
-      )}
+        ))}
+        <div ref={messagesEndRef} />
+      </div>
+
+      <div className="flex gap-2">
+        <input
+          type="text"
+          value={input}
+          onChange={(e: ChangeEvent<HTMLInputElement>) => setInput(e.target.value)}
+          onKeyDown={e => e.key === "Enter" && handleSend()}
+          placeholder="Type your message..."
+          className="flex-1 border rounded-l-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-400"
+        />
+        <button
+          onClick={handleSend}
+          className="bg-green-500 text-white px-4 rounded-r-lg hover:bg-green-600 transition"
+        >
+          Send
+        </button>
+      </div>
     </div>
   );
 }
