@@ -1,15 +1,16 @@
-import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { BookOpen, Mail, Lock } from 'lucide-react';
-import { Button } from '../components/Button';
-import { Input } from '../components/Input';
-import { useAuth } from '../hooks/useAuth.tsx';
+import React, { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { BookOpen, Mail, Lock } from "lucide-react";
+import { Button } from "../components/Button";
+import { Input } from "../components/Input";
+import { useAuth } from "../hooks/useAuth"; // ✅ no .tsx extension
 
 export const LoginPage: React.FC = () => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [errors, setErrors] = useState<{ email?: string; password?: string; general?: string }>({});
   const [isLoading, setIsLoading] = useState(false);
+
   const { login, loginWithGoogle } = useAuth();
   const navigate = useNavigate();
 
@@ -17,13 +18,13 @@ export const LoginPage: React.FC = () => {
     const newErrors: { email?: string; password?: string } = {};
 
     if (!email) {
-      newErrors.email = 'Email is required';
+      newErrors.email = "Email is required";
     } else if (!/\S+@\S+\.\S+/.test(email)) {
-      newErrors.email = 'Email is invalid';
+      newErrors.email = "Email is invalid";
     }
 
     if (!password) {
-      newErrors.password = 'Password is required';
+      newErrors.password = "Password is required";
     }
 
     setErrors(newErrors);
@@ -32,16 +33,15 @@ export const LoginPage: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
     if (!validateForm()) return;
 
     try {
       setIsLoading(true);
       setErrors({});
       await login(email, password);
-      navigate('/dashboard');
+      navigate("/dashboard");
     } catch (error) {
-      setErrors({ general: 'Invalid email or password' });
+      setErrors({ general: "Invalid email or password" });
     } finally {
       setIsLoading(false);
     }
@@ -50,9 +50,9 @@ export const LoginPage: React.FC = () => {
   const handleGoogleSignIn = async () => {
     try {
       await loginWithGoogle();
-      navigate('/dashboard');
+      navigate("/dashboard");
     } catch (error) {
-      setErrors({ general: 'Google authentication failed' });
+      setErrors({ general: "Google authentication failed" });
     }
   };
 
@@ -82,7 +82,7 @@ export const LoginPage: React.FC = () => {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-6">
-            <div>
+            <div className="relative">
               <Input
                 label="Email"
                 type="email"
@@ -121,12 +121,7 @@ export const LoginPage: React.FC = () => {
               </Link>
             </div>
 
-            <Button
-              type="submit"
-              isLoading={isLoading}
-              className="w-full"
-              size="lg"
-            >
+            <Button type="submit" isLoading={isLoading} className="w-full" size="lg">
               Sign In
             </Button>
           </form>
@@ -144,13 +139,7 @@ export const LoginPage: React.FC = () => {
           </div>
 
           {/* Google Sign In */}
-          <Button
-            type="button"
-            variant="outline"
-            onClick={handleGoogleSignIn}
-            className="w-full mb-6"
-            size="lg"
-          >
+          <Button type="button" variant="outline" onClick={handleGoogleSignIn} className="w-full mb-6" size="lg">
             <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
               <path
                 fill="currentColor"
@@ -173,7 +162,7 @@ export const LoginPage: React.FC = () => {
           </Button>
 
           <p className="text-center text-sm text-gray-600">
-            Don't have an account?{' '}
+            Don't have an account?{" "}
             <Link to="/signup" className="text-blue-600 hover:text-blue-700 font-medium">
               Sign up
             </Link>

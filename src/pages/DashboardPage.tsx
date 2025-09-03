@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { loadData } from '../utils/realtimeDb';
+import React, { useState, useRef } from 'react';
+import { loadData, pushData, removeData } from '../utils/realtimeDb';
 import { Calendar } from '../components/Calendar';
 import { Sidebar } from '../components/Sidebar';
 import { ChatPanel } from '../components/ChatPanel';
@@ -8,8 +8,7 @@ import { MessageSquare } from 'lucide-react';
 
 export const DashboardPage: React.FC = () => {
   // Chat session state (for multi-session support)
-  const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
-  const [newChatTrigger, setNewChatTrigger] = useState(0);
+  // selectedChatId is now only used for chat session selection below
 
   // Delete event handler
   const handleEventDelete = (eventId: string) => {
@@ -131,30 +130,104 @@ export const DashboardPage: React.FC = () => {
   };
 
 
-  // Chat history state and logic
-  const [chatHistory, setChatHistory] = useState<any[]>([]);
-  const [showHistory, setShowHistory] = useState(false);
 
+  // Chat session state (for multi-session support)
+  // Store chat sessions as { key, value } pairs for correct deletion
+  const [chatSessions, setChatSessions] = useState<{ key: string, value: any }[]>([]);
+  const [showHistory, setShowHistory] = useState(false);
+  const [viewedSession, setViewedSession] = useState<any | null>(null);
+  const chatPanelRef = useRef<any>(null);
+
+  // Load all chat sessions for history modal
   const handleHistoryClick = async () => {
-    // Load chat messages from Firebase when opening history
     try {
-      const messagesObj = await loadData(`chats/1/messages`);
-      // messagesObj is an object with keys, convert to array
-      const messages = messagesObj ? Object.values(messagesObj) : [];
-      setChatHistory(messages);
+      const sessionsObj = await loadData(`chats/1/sessions`);
+      const sessions = sessionsObj
+        ? Object.entries(sessionsObj).map(([key, value]) => ({ key, value }))
+        : [];
+      setChatSessions(sessions);
     } catch (err) {
-      setChatHistory([]);
+      setChatSessions([]);
     }
     setShowHistory(true);
   };
 
   const handleHistoryClose = () => {
     setShowHistory(false);
+    setViewedSession(null);
   };
 
-  const handleNewChat = () => {
+  // New Chat: create a new session and open it
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
+
+  // Open chat panel with current session, or create a new session if none exists
+  const openChatWithSession = async () => {
+    if (activeSessionId) {
+      setIsChatOpen(true);
+      return;
+    }
+    // If no session exists, create a new one with a generic title
+    const newChat = {
+      id: Date.now().toString(),
+      title: 'New Chat',
+      messages: [
+        {
+          id: Date.now().toString(),
+          content: "Hello! I'm your AI tutor. I can help you plan your semester, add events to your calendar, and answer academic questions. How can I assist you today?",
+          sender: 'ai',
+          timestamp: new Date().toISOString(),
+          userId: '1',
+        },
+      ],
+      lastUpdated: new Date().toISOString(),
+      userId: '1',
+    };
+    await pushData(`chats/1/sessions`, newChat);
+    // Reload all chat sessions as {key, value} pairs
+    const sessionsObj = await loadData(`chats/1/sessions`);
+    const sessions = sessionsObj
+      ? Object.entries(sessionsObj).map(([key, value]) => ({ key, value }))
+      : [];
+    setChatSessions(sessions);
+    setActiveSessionId(newChat.id);
     setIsChatOpen(true);
-    setNewChatTrigger(prev => prev + 1);
+    if (chatPanelRef.current && typeof chatPanelRef.current.resetChat === 'function') {
+      chatPanelRef.current.resetChat();
+    }
+  };
+  const handleNewChat = async () => {
+    const newChat = {
+      id: Date.now().toString(),
+      title: 'New Chat',
+      messages: [
+        {
+          id: Date.now().toString(),
+          content: "Hello! I'm your AI tutor. I can help you plan your semester, add events to your calendar, and answer academic questions. How can I assist you today?",
+          sender: 'ai',
+          timestamp: new Date().toISOString(),
+          userId: '1',
+        },
+      ],
+      lastUpdated: new Date().toISOString(),
+      userId: '1',
+    };
+    await pushData(`chats/1/sessions`, newChat);
+    // Reload all chat sessions as {key, value} pairs
+    const sessionsObj = await loadData(`chats/1/sessions`);
+    const sessions = sessionsObj
+      ? Object.entries(sessionsObj).map(([key, value]) => ({ key, value }))
+      : [];
+    setChatSessions(sessions);
+    setActiveSessionId(newChat.id);
+    setIsChatOpen(true);
+    if (chatPanelRef.current && typeof chatPanelRef.current.resetChat === 'function') {
+      chatPanelRef.current.resetChat();
+    }
+  };
+
+  // When a session is selected from history, show it in the modal
+  const handleSessionClick = (session: any) => {
+    setViewedSession(session);
   };
 
   const toggleChat = () => {
@@ -174,28 +247,94 @@ export const DashboardPage: React.FC = () => {
     <div className="flex h-screen bg-gray-50">
       {/* Sidebar */}
       <Sidebar 
-        onNewChat={handleNewChat} 
+        onNewChat={openChatWithSession} 
         onHistoryClick={handleHistoryClick}
       />
 
-      {/* Chat History Modal */}
+      {/* Chat History Modal (ChatGPT style) */}
       {showHistory && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 relative animate-fade-in">
-            <button onClick={handleHistoryClose} className="absolute top-4 right-4 text-gray-400 hover:text-blue-600 text-2xl font-bold">&times;</button>
-            <h2 className="text-xl font-bold mb-4 text-blue-700">Chat History</h2>
-            {chatHistory.length === 0 ? (
-              <p className="text-gray-500">No chat messages yet.</p>
-            ) : (
-              <ul className="space-y-2 max-h-96 overflow-y-auto">
-                {chatHistory.map((msg, idx) => (
-                  <li key={msg.id || idx} className={`px-4 py-2 rounded-lg ${msg.sender === 'user' ? 'bg-blue-100 text-blue-900' : 'bg-purple-100 text-purple-900'}`}>
-                    <span className="font-semibold">{msg.sender === 'user' ? 'You' : 'AI'}:</span> {msg.content}
-                    <div className="text-xs text-gray-500 mt-1">{new Date(msg.timestamp).toLocaleString()}</div>
-                  </li>
-                ))}
-              </ul>
-            )}
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="bg-gradient-to-br from-blue-50 via-white to-purple-100 rounded-3xl shadow-2xl max-w-3xl w-full p-0 relative animate-fade-in flex flex-col md:flex-row gap-0 border-2 border-blue-100">
+            <button onClick={handleHistoryClose} className="absolute top-4 right-6 text-gray-400 hover:text-blue-600 text-3xl font-bold z-10">&times;</button>
+            {/* Sidebar with chat sessions */}
+            <div className="w-full md:w-1/3 bg-gradient-to-b from-blue-100 via-white to-purple-100 rounded-l-3xl p-6 border-r-2 border-blue-100 flex flex-col">
+              <h2 className="text-xl font-extrabold mb-6 text-blue-700 tracking-tight flex items-center gap-2">
+                <svg className="w-6 h-6 text-blue-500" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M17 8h2a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2v-8a2 2 0 012-2h2"></path><path strokeLinecap="round" strokeLinejoin="round" d="M15 3h-6a2 2 0 00-2 2v3a2 2 0 002 2h6a2 2 0 002-2V5a2 2 0 00-2-2z"></path></svg>
+                Chat History
+              </h2>
+              <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar">
+                {chatSessions.length === 0 ? (
+                  <p className="text-gray-400 text-center mt-12">No chats yet.</p>
+                ) : (
+                  <ul className="space-y-3">
+                    {chatSessions.map(({ key: sessionKey, value: session }) => {
+                      let summary = session.title;
+                      if (session.messages && session.messages.length > 1) {
+                        const firstUserMsg = session.messages.find((m: any) => m.sender === 'user');
+                        if (firstUserMsg) {
+                          summary = firstUserMsg.content.length > 30 ? firstUserMsg.content.slice(0, 30) + '...' : firstUserMsg.content;
+                        }
+                      }
+                      const safeSummary = summary && typeof summary === 'string' && summary.length > 0 ? summary : 'Chat';
+                      return (
+                        <li
+                          key={session.id}
+                          className={`flex items-center gap-3 group cursor-pointer px-4 py-3 rounded-2xl border-2 transition-all shadow-sm ${viewedSession && viewedSession.id === session.id ? 'bg-gradient-to-r from-blue-200 via-purple-100 to-white border-blue-400 scale-105' : 'hover:bg-blue-50 border-blue-100'}`}
+                        >
+                          <div onClick={() => handleSessionClick(session)} className={`w-10 h-10 rounded-full flex items-center justify-center text-lg font-bold shadow ${viewedSession && viewedSession.id === session.id ? 'bg-blue-600 text-white' : 'bg-white text-blue-600 border border-blue-200'}`}>
+                            {safeSummary.charAt(0).toUpperCase()}
+                          </div>
+                          <div onClick={() => handleSessionClick(session)} className="flex-1 min-w-0">
+                            <div className="font-semibold text-blue-800 truncate text-base">{safeSummary}</div>
+                            <div className="text-xs text-gray-400">{new Date(session.lastUpdated).toLocaleString()}</div>
+                          </div>
+                          <button
+                            className="ml-2 opacity-0 group-hover:opacity-100 transition-opacity text-red-500 hover:text-red-700 p-1 rounded-full"
+                            title="Delete chat"
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              await removeData(`chats/1/sessions/${sessionKey}`);
+                              // Reload all chat sessions from Firebase to ensure UI is in sync
+                              const sessionsObj = await loadData(`chats/1/sessions`);
+                              const sessions = sessionsObj
+                                ? Object.entries(sessionsObj).map(([key, value]) => ({ key, value }))
+                                : [];
+                              setChatSessions(sessions);
+                              if (viewedSession && viewedSession.id === session.id) setViewedSession(null);
+                            }}
+                          >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
+            </div>
+            {/* Main chat view */}
+            <div className="flex-1 bg-white rounded-r-3xl p-8 flex flex-col overflow-y-auto max-h-[80vh] min-h-[60vh]">
+              {viewedSession ? (
+                <>
+                  <div className="font-bold text-2xl mb-4 text-blue-700 flex items-center gap-2">
+                    <svg className="w-7 h-7 text-blue-500" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M17 8h2a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2v-8a2 2 0 012-2h2"></path><path strokeLinecap="round" strokeLinejoin="round" d="M15 3h-6a2 2 0 00-2 2v3a2 2 0 002 2h6a2 2 0 002-2V5a2 2 0 00-2-2z"></path></svg>
+                    {viewedSession.title}
+                  </div>
+                  <div className="space-y-5 flex-1 overflow-y-auto custom-scrollbar">
+                    {viewedSession.messages.map((msg: any) => (
+                      <div key={msg.id} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
+                        <div className={`px-5 py-3 rounded-2xl max-w-lg shadow-md ${msg.sender === 'user' ? 'bg-blue-600 text-white rounded-br-2xl' : 'bg-gradient-to-br from-white via-blue-50 to-purple-50 text-blue-900 border border-blue-100 rounded-bl-2xl'}`}>
+                          <span className="font-semibold mr-2">{msg.sender === 'user' ? 'You' : 'AI'}:</span> {msg.content}
+                          <div className="text-xs text-gray-400 mt-1 text-right">{new Date(msg.timestamp).toLocaleString()}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <div className="text-gray-400 flex items-center justify-center h-full text-lg font-semibold">Select a chat to view conversation</div>
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -298,7 +437,7 @@ export const DashboardPage: React.FC = () => {
               <p className="text-gray-600">Plan your semester with AI-powered insights</p>
             </div>
             <button
-              onClick={toggleChat}
+              onClick={openChatWithSession}
               className={`p-3 rounded-lg transition-all duration-200 ${
                 isChatOpen 
                   ? 'bg-blue-600 text-white shadow-lg' 
@@ -514,8 +653,15 @@ export const DashboardPage: React.FC = () => {
         </div>
       )}
 
-      {/* Chat Panel */}
-  <ChatPanel isOpen={isChatOpen} onToggle={toggleChat} newChatTrigger={newChatTrigger} />
+  {/* Chat Panel */}
+  {isChatOpen && activeSessionId && (
+    <ChatPanel
+      ref={chatPanelRef}
+      isOpen={isChatOpen}
+      onToggle={toggleChat}
+      sessionId={activeSessionId}
+    />
+  )}
     </div>
   );
 };
